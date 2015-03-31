@@ -288,8 +288,10 @@ static void repaint_balls(Layer *layer, GContext *ctx)
 
    // When I'm all grown up; I'll make this nice!
    const int outline_only = 1;
+   GColor fill = GColorWhite;
 
 #if defined(PBL_PLATFORM_BASALT)
+   fill = GColorBrightGreen;
    graphics_context_set_antialiased(ctx, false);
    graphics_context_set_stroke_width(ctx, outline_only ? 1 : 0);
 #endif
@@ -306,9 +308,7 @@ static void repaint_balls(Layer *layer, GContext *ctx)
    if (outline_only)
    {
       graphics_context_set_stroke_color(ctx, GColorBlack);
-#if defined(PBL_PLATFORM_BASALT)
-      graphics_context_set_fill_color(ctx, GColorBrightGreen);
-#endif
+      graphics_context_set_fill_color(ctx, fill);
    }
    else
    {
@@ -319,11 +319,9 @@ static void repaint_balls(Layer *layer, GContext *ctx)
    {
       if (outline_only)
       {
-#if defined(PBL_PLATFORM_BASALT)
          graphics_fill_circle(
             ctx, (GPoint){.x = f2i(s_state.px[a]), .y = f2i(s_state.py[a])},
             f2i(s_state.r[a]));
-#endif
          graphics_draw_circle(
             ctx, (GPoint){.x = f2i(s_state.px[a]), .y = f2i(s_state.py[a])},
             f2i(s_state.r[a]));
