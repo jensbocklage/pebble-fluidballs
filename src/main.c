@@ -60,9 +60,7 @@ static unsigned int get_time(void)
 #define F (1 << Q)
 #define M (F - 1)
 #define i2f(i) ((f32)((i)*F))
-#define hi2f(i) ((f32)((i)*(F/2)))
 #define f2i(f) ((f32)((f) / F))
-#define hf2i(f) ((f32)((f) / (F/2)))
 #define f2f(f) ((f) / (float)F)
 typedef int32_t f32;
 
@@ -145,40 +143,39 @@ static struct
    GRect bounds;
    Window *window;
    Animation *anim;
-   float accx;                       /* horizontal acceleration (wind) */
-   float accy;                       /* vertical acceleration (gravity) */
-   float vx[NUMBALLS], vy[NUMBALLS]; /* current ball velocities */
-   float px[NUMBALLS], py[NUMBALLS]; /* current ball positions */
-   float r[NUMBALLS];                /* ball radiuses */
-   float m[NUMBALLS];                /* ball mass, precalculated */
-   float e;                          /* coeficient of elasticity */
-   float max_radius;                 /* largest radius of any ball */
+   f32 accx;                       /* horizontal acceleration (wind) */
+   f32 accy;                       /* vertical acceleration (gravity) */
+   f32 vx[NUMBALLS], vy[NUMBALLS]; /* current ball velocities */
+   f32 px[NUMBALLS], py[NUMBALLS]; /* current ball positions */
+   f32 r[NUMBALLS];                /* ball radiuses */
+   f32 m[NUMBALLS];                /* ball mass, precalculated */
+   f32 e;                          /* coeficient of elasticity */
    enum Gravity grav;
 } s_state;
 
 static void fluidballs_init(void)
 {
-   s_state.max_radius = 10;
    s_state.accx = 0;
-   s_state.accy = GRAV;
-   s_state.e = 0.97;
+   s_state.accy = i2f(GRAV);
+   s_state.e = i2f(0.97);
    s_state.grav = GRAV_SHOW;
+
+   float max_radius = 10;
 
    for (int i = 0; i < NUMBALLS; i++)
    {
-      float r = s_state.r[i] =
-         (frand(s_state.max_radius * 0.65f) + s_state.max_radius * 0.35f) /
-         sqrtf((float)NUMBALLS / 50.f);
-      s_state.px[i] = frand(s_state.bounds.size.w - 2.f * r) + r;
-      s_state.py[i] = frand(s_state.bounds.size.h - 2.f * r) + r;
-      s_state.vx[i] = 0.f;  // frand(5) - 2.5;
-      s_state.vy[i] = 0.f;  // frand(5) - 2.5;
-      s_state.m[i] = r * r * r * M_PI * 4.f / 3.f;
+      float r = (frand(max_radius * 0.65f) + max_radius * 0.35f) / sqrtf((float)NUMBALLS / 50.f);
+      s_state.r[i] = i2f(r);
+      s_state.px[i] = i2f(frand(s_state.bounds.size.w - 2.f * r) + r);
+      s_state.py[i] = i2f(frand(s_state.bounds.size.h - 2.f * r) + r);
+      s_state.vx[i] = 0;  // frand(5) - 2.5;
+      s_state.vy[i] = 0;  // frand(5) - 2.5;
+      s_state.m[i] = i2f(r * r * r * M_PI * 4.f / 3.f);
 
       APP_LOG(APP_LOG_LEVEL_DEBUG,
               "created ball %d: p=(%d, %d), v=(%d, %d), r=%d, m=%d", i,
-              (int)s_state.px[i], (int)s_state.py[i], (int)s_state.vx[i],
-              (int)s_state.vy[i], (int)s_state.r[i], (int)s_state.m[i]);
+              (int)f2i(s_state.px[i]), (int)f2i(s_state.py[i]), (int)f2i(s_state.vx[i]),
+              (int)f2i(s_state.vy[i]), (int)f2i(s_state.r[i]), (int)f2i(s_state.m[i]));
    }
 }
 
@@ -188,8 +185,7 @@ static void update_balls(void)
 {
    APP_LOG(APP_LOG_LEVEL_DEBUG, "update_balls");
 
-   float e = s_state.e;
-   f32 fe = i2f(e);
+   f32 fe = s_state.e;
 
    uint16_t collision_count = 0;
    START_TIME_MEASURE();
@@ -197,16 +193,12 @@ static void update_balls(void)
    /* For each ball, compute the influence of every other ball. */
    for (int a = 0; a < NUMBALLS - 1; a++)
    {
-      float pxa = s_state.px[a], pya = s_state.py[a], ra = s_state.r[a],
-            ma = s_state.m[a], vxa = s_state.vx[a], vya = s_state.vy[a];
-
-      f32 fpxa = i2f(pxa), fpya = i2f(pya), fra = i2f(ra);
-      f32 fma = i2f(ma), fvxa = i2f(vxa), fvya = i2f(vya);
+      f32 fpxa = s_state.px[a], fpya = s_state.py[a], fra = s_state.r[a],
+            fma = s_state.m[a], fvxa = s_state.vx[a], fvya = s_state.vy[a];
 
       for (int b = a + 1; b < NUMBALLS; b++)
       {
-         float pxb = s_state.px[b], pyb = s_state.py[b], rb = s_state.r[b];
-         f32 fpxb = i2f(pxb), fpyb = i2f(pyb), frb = i2f(rb);
+         f32 fpxb = s_state.px[b], fpyb = s_state.py[b], frb = s_state.r[b];
          f32 fdx = fpxa - fpxb;
          fdx = f2i(fdx * (long long)fdx);
          f32 fdy = fpya - fpyb;
@@ -216,13 +208,10 @@ static void update_balls(void)
 
          if (fd < fdee2)
          {
-            float mb = s_state.m[b];
-            f32 fmb = i2f(mb);
+            f32 fmb = s_state.m[b];
 
-            float vxb = s_state.vx[b];
-            f32 fvxb = i2f(vxb);
-            float vyb = s_state.vy[b];
-            f32 fvyb = i2f(vyb);
+            f32 fvxb = s_state.vx[b];
+            f32 fvyb = s_state.vy[b];
 
             collision_count++;
             fd = sqrtx(fd);
@@ -238,8 +227,8 @@ static void update_balls(void)
             f32 fdpy = f2i((fdd / 2) * (long long)fcdy);
             fpxa -= fdpx;
             fpya -= fdpy;
-            s_state.px[b] += f2f(fdpx);
-            s_state.py[b] += f2f(fdpy);
+            s_state.px[b] += fdpx;
+            s_state.py[b] += fdpy;
 
             f32 fvca =
                f2i(fvxa * (long long)fcdx) + f2i(fvya * (long long)fcdy); /* the component of each velocity */
@@ -263,14 +252,14 @@ static void update_balls(void)
             fvxb += f2i(fdvb * (long long)fcdx);
             fvyb += f2i(fdvb * (long long)fcdy);
 
-            s_state.vx[b] = f2f(fvxb);
-            s_state.vy[b] = f2f(fvyb);
+            s_state.vx[b] = fvxb;
+            s_state.vy[b] = fvyb;
          }
 
-         s_state.px[a] = f2f(fpxa);
-         s_state.py[a] = f2f(fpya);
-         s_state.vx[a] = f2f(fvxa);
-         s_state.vy[a] = f2f(fvya);
+         s_state.px[a] = fpxa;
+         s_state.py[a] = fpya;
+         s_state.vx[a] = fvxa;
+         s_state.vy[a] = fvya;
       }
    }
 
@@ -278,26 +267,26 @@ static void update_balls(void)
     */
    for (int a = 0; a < NUMBALLS; a++)
    {
-      float r = s_state.r[a];
+      f32 r = s_state.r[a];
       if (s_state.px[a] < r)
       {
          s_state.px[a] = r;
-         s_state.vx[a] = -s_state.vx[a] * e;
+         s_state.vx[a] = f2i(-s_state.vx[a] * fe);
       }
-      if (s_state.px[a] + r > s_state.bounds.size.w)
+      if (s_state.px[a] + r > i2f(s_state.bounds.size.w))
       {
-         s_state.px[a] = s_state.bounds.size.w - r;
-         s_state.vx[a] = -s_state.vx[a] * e;
+         s_state.px[a] = i2f(s_state.bounds.size.w) - r;
+         s_state.vx[a] = f2i(-s_state.vx[a] * fe);
       }
       if (s_state.py[a] < r)
       {
          s_state.py[a] = r;
-         s_state.vy[a] = -s_state.vy[a] * e;
+         s_state.vy[a] = f2i(-s_state.vy[a] * fe);
       }
-      if (s_state.py[a] + r > s_state.bounds.size.h)
+      if (s_state.py[a] + r > i2f(s_state.bounds.size.h))
       {
-         s_state.py[a] = s_state.bounds.size.h - r;
-         s_state.vy[a] = -s_state.vy[a] * e;
+         s_state.py[a] = i2f(s_state.bounds.size.h) - r;
+         s_state.vy[a] = f2i(-s_state.vy[a] * fe);
       }
    }
 
@@ -356,13 +345,13 @@ static void repaint_balls(Layer *layer, GContext *ctx)
       if (outline_only) {
 #if defined(PBL_PLATFORM_BASALT)
          graphics_fill_circle(
-            ctx, (GPoint){.x = s_state.px[a], .y = s_state.py[a]}, s_state.r[a]);
+            ctx, (GPoint){.x = f2i(s_state.px[a]), .y = f2i(s_state.py[a])}, f2i(s_state.r[a]));
 #endif
          graphics_draw_circle(
-            ctx, (GPoint){.x = s_state.px[a], .y = s_state.py[a]}, s_state.r[a]);
+            ctx, (GPoint){.x = f2i(s_state.px[a]), .y = f2i(s_state.py[a])}, f2i(s_state.r[a]));
       } else {
          graphics_fill_circle(
-            ctx, (GPoint){.x = s_state.px[a], .y = s_state.py[a]}, s_state.r[a]);
+            ctx, (GPoint){.x = f2i(s_state.px[a]), .y = f2i(s_state.py[a])}, f2i(s_state.r[a]));
       }
    }
 
@@ -402,10 +391,10 @@ static void update_gravity(void)
       {
       case 0:
          s_state.accx = 0;
-         s_state.accy = GRAV;
+         s_state.accy = i2f(GRAV);
          break;
       case 3+5:
-         s_state.accx = sign * GRAV;
+         s_state.accx = sign * i2f(GRAV);
          s_state.accy = 0;
          break;
       case 4+5:
