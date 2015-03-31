@@ -53,6 +53,9 @@ static unsigned int get_time(void)
 
 #define M_PI 3.14159265358979323846
 
+#define NUMBALLS 50
+#define GRAV (9.81 / 30)  // 1/30 of 1g
+
 static float sqrtf(float f)
 {
    float v = f * 0.5;
@@ -80,21 +83,13 @@ extern inline unsigned int GameRand(void)
    return high;
 }
 
-extern inline float frand(float m)
-{
-   float x = GameRand() / (float)-1u;
-   return x * m;
-}
+extern inline float frand(float m) { return m * GameRand() / (float)-1u; }
 
-#define NUMBALLS 50
-#define GRAV 0.2
-
-typedef struct
+static struct
 {
    GRect bounds;
    Window *window;
    Animation *anim;
-   int count;                        /* number of balls */
    float accx;                       /* horizontal acceleration (wind) */
    float accy;                       /* vertical acceleration (gravity) */
    float vx[NUMBALLS], vy[NUMBALLS]; /* current ball velocities */
@@ -103,9 +98,7 @@ typedef struct
    float m[NUMBALLS];                /* ball mass, precalculated */
    float e;                          /* coeficient of elasticity */
    float max_radius;                 /* largest radius of any ball */
-} b_state;
-
-static b_state s_state;
+} s_state;
 
 static void fluidballs_init(void)
 {
@@ -113,12 +106,12 @@ static void fluidballs_init(void)
    s_state.accx = 0;
    s_state.accy = GRAV;
    s_state.e = 0.97;
-   s_state.count = NUMBALLS;
 
-   for (int i = 0, end = s_state.count; i < end; i++)
+   for (int i = 0; i < NUMBALLS; i++)
    {
       float r = s_state.r[i] =
-         (frand(s_state.max_radius * 0.75) + s_state.max_radius * 0.25);
+         (frand(s_state.max_radius * 0.65) + s_state.max_radius * 0.35) /
+         sqrtf((float)NUMBALLS / 50);
       s_state.px[i] = frand(s_state.bounds.size.w - 2 * r) + r;
       s_state.py[i] = frand(s_state.bounds.size.h - 2 * r) + r;
       s_state.vx[i] = 0;  // frand(5) - 2.5;
@@ -144,12 +137,12 @@ static void update_balls(void)
    START_TIME_MEASURE();
 
    /* For each ball, compute the influence of every other ball. */
-   for (int a = 0, end = s_state.count; a < end - 1; a++)
+   for (int a = 0; a < NUMBALLS - 1; a++)
    {
       float pxa = s_state.px[a], pya = s_state.py[a], ra = s_state.r[a],
             ma = s_state.m[a], vxa = s_state.vx[a], vya = s_state.vy[a];
 
-      for (int b = a + 1; b < end; b++)
+      for (int b = a + 1; b < NUMBALLS; b++)
       {
          float pxb = s_state.px[b], pyb = s_state.py[b], rb = s_state.r[b];
          float d = (pxa - pxb) * (pxa - pxb) + (pya - pyb) * (pya - pyb);
@@ -213,7 +206,7 @@ static void update_balls(void)
 
    /* Force all balls to be on screen.
     */
-   for (int a = 0, end = s_state.count; a < end; a++)
+   for (int a = 0; a < NUMBALLS; a++)
    {
       float r = s_state.r[a];
       if (s_state.px[a] < r)
@@ -240,7 +233,7 @@ static void update_balls(void)
 
    /* Apply gravity to all balls.
     */
-   for (int a = 0, end = s_state.count; a < end; a++)
+   for (int a = 0; a < NUMBALLS; a++)
    {
       s_state.vx[a] += s_state.accx;
       s_state.vy[a] += s_state.accy;
@@ -275,7 +268,7 @@ static void repaint_balls(Layer *layer, GContext *ctx)
 
    // black blobs
    graphics_context_set_fill_color(ctx, GColorBlack);
-   for (int a = 0; a < s_state.count; a++)
+   for (int a = 0; a < NUMBALLS; a++)
    {
       graphics_fill_circle(
          ctx, (GPoint){.x = s_state.px[a], .y = s_state.py[a]}, s_state.r[a]);
@@ -301,14 +294,15 @@ static void update_gravity(void)
       APP_LOG(APP_LOG_LEVEL_DEBUG, "Could not get accel data: %d", e);
       return;
    }
-   s_state.accx = adata.x * 0.1;
-   s_state.accy = adata.y * 0.1;
+   s_state.accx = adata.x / 30;
+   s_state.accy = adata.y / 30;
 #elif 1
    static int u = 0;
 
    u++;
 
-   const int frames = 120;
+   const int frames = 40;
+   static int sign = 1;
 
    switch (u / frames)
    {
@@ -316,16 +310,8 @@ static void update_gravity(void)
       s_state.accx = 0;
       s_state.accy = GRAV;
       break;
-   case 1:
-      s_state.accx = GRAV;
-      s_state.accy = 0;
-      break;
-   case 2:
-      s_state.accx = 0;
-      s_state.accy = -GRAV;
-      break;
    case 3:
-      s_state.accx = -GRAV;
+      s_state.accx = sign * GRAV;
       s_state.accy = 0;
       break;
    case 4:
@@ -334,9 +320,10 @@ static void update_gravity(void)
    }
 
    // 6, let no grav last 2x as long
-   if (u >= frames * 6)
+   if (u >= frames * 20)
    {
       u = 0;
+      sign = -sign;
    }
 #endif
 }
