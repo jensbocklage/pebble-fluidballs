@@ -92,10 +92,10 @@ static f32 sqrtx(f32 f)
    IT();
    IT();  // 5 is not enough for a nice animation
    IT();
-   IT();
-   IT();  // 8 looks good
-   IT();
-   IT();  // 10 looks even better
+//   IT();
+//   IT();  // 8 looks good
+//   IT();
+//   IT();  // 10 looks even better
 #undef IT
    return v;
 }
