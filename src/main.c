@@ -53,7 +53,6 @@ static unsigned int get_time(void)
 
 #define M_PI (i2f(31415) / 10000)
 
-#define NUMBALLS 20
 #define GRAV (i2f(981) / 3000)  // 1/30 of 1g
 
 #define Q 10  // works quite well with 10 bits
@@ -65,7 +64,8 @@ static unsigned int get_time(void)
 typedef int32_t f32;
 
 static char timeText[6] = "00:00";
-
+#define MAXBALLS 59
+char numBalls = 0;
 
 static f32 sqrtx(f32 f)
 {
@@ -115,28 +115,31 @@ static struct
    Animation *anim;
    f32 accx;                       /* horizontal acceleration (wind) */
    f32 accy;                       /* vertical acceleration (gravity) */
-   f32 vx[NUMBALLS], vy[NUMBALLS]; /* current ball velocities */
-   f32 px[NUMBALLS], py[NUMBALLS]; /* current ball positions */
-   f32 r[NUMBALLS];                /* ball radiuses */
-   f32 m[NUMBALLS];                /* ball mass, precalculated */
+   f32 vx[MAXBALLS], vy[MAXBALLS]; /* current ball velocities */
+   f32 px[MAXBALLS], py[MAXBALLS]; /* current ball positions */
+   f32 r[MAXBALLS];                /* ball radiuses */
+   f32 m[MAXBALLS];                /* ball mass, precalculated */
    f32 e;                          /* coeficient of elasticity */
    enum Gravity grav;
    enum Style style;
 } s_state;
 
-static void fluidballs_init(void)
+static void behaviour_init(void)
 {
-   s_state.accx = 0;
-   s_state.accy = GRAV;
-   s_state.e = i2f(97) / 100;
-   s_state.grav = GRAV_SHOW;
+	s_state.accx = 0;
+	s_state.accy = GRAV;
+	s_state.e = i2f(97) / 100;
+	s_state.grav = GRAV_SHOW;
+}
 
+static void fluidballs_init(char seconds)
+{
    f32 max_radius = i2f(10);
 
-   for (int i = 0; i < NUMBALLS; i++)
+   for (int i = numBalls; i < seconds; i++)
    {
       f32 r = i2f(xrand(max_radius * 65 / 100) + max_radius * 35 / 100) /
-              sqrtx(i2f(NUMBALLS) / 50);
+              sqrtx(i2f(MAXBALLS) / 50);
       s_state.r[i] = r;
       s_state.px[i] = (xrand(i2f(s_state.bounds.size.w) - 2 * r) + r);
       s_state.py[i] = (xrand(i2f(s_state.bounds.size.h) - 2 * r) + r);
@@ -151,6 +154,7 @@ static void fluidballs_init(void)
               (int)f2i(s_state.vx[i]), (int)f2i(s_state.vy[i]),
               (int)f2i(s_state.r[i]), (int)f2i(r), (int)f2i(s_state.m[i]));
    }
+	numBalls = seconds;
 }
 
 /* Implements the laws of physics: move balls to their new positions.
@@ -165,12 +169,12 @@ static void update_balls(void)
    START_TIME_MEASURE();
 
    /* For each ball, compute the influence of every other ball. */
-   for (int a = 0; a < NUMBALLS - 1; a++)
+   for (int a = 0; a < numBalls - 1; a++)
    {
       f32 fpxa = s_state.px[a], fpya = s_state.py[a], fra = s_state.r[a],
           fma = s_state.m[a], fvxa = s_state.vx[a], fvya = s_state.vy[a];
 
-      for (int b = a + 1; b < NUMBALLS; b++)
+      for (int b = a + 1; b < numBalls; b++)
       {
          f32 fpxb = s_state.px[b], fpyb = s_state.py[b], frb = s_state.r[b];
          f32 fdx = fpxa - fpxb;
@@ -247,7 +251,7 @@ static void update_balls(void)
     */
    f32 fw = i2f(s_state.bounds.size.w);
    f32 fh = i2f(s_state.bounds.size.h);
-   for (int a = 0; a < NUMBALLS; a++)
+   for (int a = 0; a < numBalls; a++)
    {
       f32 r = s_state.r[a];
       if (s_state.px[a] < r)
@@ -274,7 +278,7 @@ static void update_balls(void)
 
    /* Apply gravity to all balls.
     */
-   for (int a = 0; a < NUMBALLS; a++)
+   for (int a = 0; a < numBalls; a++)
    {
       s_state.vx[a] += s_state.accx;
       s_state.vy[a] += s_state.accy;
@@ -325,7 +329,7 @@ static void repaint_balls(Layer *layer, GContext *ctx)
       graphics_context_set_fill_color(ctx, GColorBlack);
    }
 
-   for (int a = 0; a < NUMBALLS; a++)
+   for (int a = 0; a < numBalls; a++)
    {
       if (outline_only)
       {
@@ -451,8 +455,11 @@ void handle_second_tick(struct tm *tick_time, TimeUnits units_changed) {
 	struct tm* timeinfo;
 	
 	time(&rawtime);
-	//timeinfo = localtime(&rawtime);
-	strftime(timeText, 6, clock_is_24h_style() ? "%H:%M" : "%I:%M", localtime(&rawtime));
+	timeinfo = localtime(&rawtime);
+	
+	strftime(timeText, 6, clock_is_24h_style() ? "%H:%M" : "%I:%M", timeinfo);
+	
+	fluidballs_init(timeinfo->tm_sec); /* new ball! */
 }
 
 static void config_provider(Window *window)
@@ -468,7 +475,8 @@ static void init(void)
    window_set_fullscreen(s_state.window, true);
    s_state.bounds = (GRect){.size = (GSize){.w = 144, .h = 168}};
    s_state.anim = animation_create();
-   fluidballs_init();
+	behaviour_init();
+   fluidballs_init(0);
    animation_set_duration(s_state.anim, ANIMATION_DURATION_INFINITE);
    animation_set_implementation(s_state.anim, &anim_impl);
    window_set_window_handlers(s_state.window,
