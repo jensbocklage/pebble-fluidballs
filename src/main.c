@@ -377,8 +377,8 @@ static void update_gravity(void)
          APP_LOG(APP_LOG_LEVEL_DEBUG, "Could not get accel data: %d", e);
          return;
       }
-      s_state.accx = adata.x / (30.f * 1024.f);
-      s_state.accy = -adata.y / (30.f * 1024.f);
+      s_state.accx = i2f(adata.x) >> 15; // / (30.f * 1024.f));
+      s_state.accy = i2f(-adata.y) >> 15; // / (30.f * 1024.f));
 
       u = 0;
    } else {
