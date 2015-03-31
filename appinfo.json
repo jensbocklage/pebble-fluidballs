@@ -1,19 +1,26 @@
 {
-  "uuid": "87aba232-ceb0-470a-8c61-f7335f276897",
-  "shortName": "fluidballs",
-  "longName": "XScreenSaver's fluidballs hack ported to Pebble",
-  "companyName": "fritschy.de",
-  "versionCode": 1,
-  "versionLabel": "1.0",
-  "sdkVersion": "3",
-  "targetPlatforms": ["basalt", "aplite"],
-  "watchapp": {
-    "watchface": false
-  },
-  "appKeys": {
-    "dummy": 0
-  },
-  "resources": {
-    "media": []
-  }
+    "appKeys": {
+        "dummy": 0
+    },
+    "capabilities": [
+        ""
+    ],
+    "companyName": "fritschy.de",
+    "longName": "XScreenSaver's fluidballs hack ported to Pebble",
+    "projectType": "native",
+    "resources": {
+        "media": []
+    },
+    "sdkVersion": "3",
+    "shortName": "fluidballs",
+    "targetPlatforms": [
+        "basalt",
+        "aplite"
+    ],
+    "uuid": "87aba232-ceb0-470a-8c61-f7335f276897",
+    "versionCode": 1,
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": false
+    }
 }

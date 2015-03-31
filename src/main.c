@@ -53,7 +53,7 @@ static unsigned int get_time(void)
 
 #define M_PI (i2f(31415) / 10000)
 
-#define NUMBALLS 60
+#define NUMBALLS 20
 #define GRAV (i2f(981) / 3000)  // 1/30 of 1g
 
 #define Q 10  // works quite well with 10 bits
@@ -63,6 +63,9 @@ static unsigned int get_time(void)
 #define f2i(f) ((f32)((f) / F))
 #define f2f(f) ((f) / (float)F)
 typedef int32_t f32;
+
+static char timeText[6] = "00:00";
+
 
 static f32 sqrtx(f32 f)
 {
@@ -342,6 +345,12 @@ static void repaint_balls(Layer *layer, GContext *ctx)
    }
 
    END_TIME_MEASURE();
+	
+	graphics_draw_text(
+		ctx, timeText, 
+		fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD),
+		GRect(0, (168/2) - 42, 144, 168), /* vert center aligned */
+		GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
 }
 
 static void window_load(Window *window)
@@ -437,6 +446,15 @@ static void up_single_click_handler(ClickRecognizerRef recognizer,
    s_state.style ^= 1;
 }
 
+void handle_second_tick(struct tm *tick_time, TimeUnits units_changed) {
+	time_t rawtime;
+	struct tm* timeinfo;
+	
+	time(&rawtime);
+	//timeinfo = localtime(&rawtime);
+	strftime(timeText, 6, clock_is_24h_style() ? "%H:%M" : "%I:%M", localtime(&rawtime));
+}
+
 static void config_provider(Window *window)
 {
    window_single_click_subscribe(BUTTON_ID_DOWN, down_single_click_handler);
@@ -460,6 +478,8 @@ static void init(void)
    window_stack_push(s_state.window, false);
    window_set_click_config_provider(s_state.window,
                                     (ClickConfigProvider)config_provider);
+
+	tick_timer_service_subscribe(SECOND_UNIT, handle_second_tick);
 }
 
 static void deinit(void)
