@@ -240,7 +240,7 @@ static void update_balls(void)
 
    /* Apply gravity to all balls.
     */
-   for (int a = 0; a < s_state.count; a++)
+   for (int a = 0, end = s_state.count; a < end; a++)
    {
       s_state.vx[a] += s_state.accx;
       s_state.vy[a] += s_state.accy;
@@ -263,13 +263,18 @@ static void repaint_balls(Layer *layer, GContext *ctx)
    START_TIME_MEASURE();
 
    graphics_context_set_antialiased(ctx, false);
-
-   graphics_context_set_fill_color(ctx, GColorBlack);
    graphics_context_set_stroke_width(ctx, 0);
 
+   // black bg
+   graphics_context_set_fill_color(ctx, GColorBlack);
    graphics_fill_rect(ctx, s_state.bounds, 0, 0);
 
+   // white frame with rounded corners
    graphics_context_set_fill_color(ctx, GColorWhite);
+   graphics_fill_rect(ctx, s_state.bounds, 3, GCornersAll);
+
+   // black blobs
+   graphics_context_set_fill_color(ctx, GColorBlack);
    for (int a = 0; a < s_state.count; a++)
    {
       graphics_fill_circle(
