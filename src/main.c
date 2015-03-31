@@ -53,7 +53,7 @@ static unsigned int get_time(void)
 
 #define M_PI (i2f(31415) / 10000)
 
-#define NUMBALLS 30
+#define NUMBALLS 60
 #define GRAV (i2f(981) / 3000)  // 1/30 of 1g
 
 #define Q 10  // works quite well with 10 bits
@@ -99,6 +99,12 @@ enum Gravity
    GRAV_SHOW
 };
 
+enum Style
+{
+   STYLE_FILL,
+   STYLE_OUTLINE
+};
+
 static struct
 {
    GRect bounds;
@@ -112,6 +118,7 @@ static struct
    f32 m[NUMBALLS];                /* ball mass, precalculated */
    f32 e;                          /* coeficient of elasticity */
    enum Gravity grav;
+   enum Style style;
 } s_state;
 
 static void fluidballs_init(void)
@@ -287,7 +294,7 @@ static void repaint_balls(Layer *layer, GContext *ctx)
    START_TIME_MEASURE();
 
    // When I'm all grown up; I'll make this nice!
-   const int outline_only = 1;
+   int outline_only = s_state.style == STYLE_OUTLINE;
    GColor fill = GColorWhite;
 
 #if defined(PBL_PLATFORM_BASALT)
@@ -424,9 +431,16 @@ static void down_single_click_handler(ClickRecognizerRef recognizer,
    s_state.grav ^= 1;
 }
 
+static void up_single_click_handler(ClickRecognizerRef recognizer,
+                                    void *context)
+{
+   s_state.style ^= 1;
+}
+
 static void config_provider(Window *window)
 {
    window_single_click_subscribe(BUTTON_ID_DOWN, down_single_click_handler);
+   window_single_click_subscribe(BUTTON_ID_UP, up_single_click_handler);
 }
 
 static void init(void)
