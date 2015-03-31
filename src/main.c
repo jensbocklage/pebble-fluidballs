@@ -56,10 +56,38 @@ static unsigned int get_time(void)
 #define NUMBALLS 30
 #define GRAV (9.81f / 30.f)  // 1/30 of 1g
 
+#define Q 10 // works quite well with 10 bits
+#define F (1 << Q)
+#define M (F - 1)
+#define i2f(i) ((f32)((i)*F))
+#define hi2f(i) ((f32)((i)*(F/2)))
+#define f2i(f) ((f32)((f) / F))
+#define hf2i(f) ((f32)((f) / (F/2)))
+#define f2f(f) ((f) / (float)F)
+typedef int32_t f32;
+
 static float sqrtf(float f)
 {
    float v = f * 0.5f;
 #define IT() v = (v + f / v) * 0.5f
+   IT();
+   IT();
+   IT();
+   IT();
+   IT();  // 5 is not enough for a nice animation
+   IT();
+   IT();
+   IT();  // 8 looks good
+   IT();
+   IT();  // 10 looks even better
+#undef IT
+   return v;
+}
+
+static f32 sqrtx(f32 f)
+{
+   f32 v = f / 2;
+#define IT() v = (v + i2f(f) / v) / 2
    IT();
    IT();
    IT();
@@ -104,6 +132,8 @@ extern inline unsigned int GameRand(void)
 }
 
 extern inline float frand(float m) { return m * GameRand() / (float)-1u; }
+
+extern inline float xrand(f32 m) { return m * (GameRand() & M); }
 
 enum Gravity {
    GRAV_SENSOR,
@@ -159,16 +189,10 @@ static void update_balls(void)
    APP_LOG(APP_LOG_LEVEL_DEBUG, "update_balls");
 
    float e = s_state.e;
+   f32 fe = i2f(e);
 
    uint16_t collision_count = 0;
    START_TIME_MEASURE();
-
-#define Q 20
-#define F (1 << Q)
-#define i2f(i) ((i)*F)
-#define f2i(f) ((f) / F)
-#define f2f(f) ((f) / (float)F)
-   typedef int32_t f32;
 
    /* For each ball, compute the influence of every other ball. */
    for (int a = 0; a < NUMBALLS - 1; a++)
@@ -176,65 +200,77 @@ static void update_balls(void)
       float pxa = s_state.px[a], pya = s_state.py[a], ra = s_state.r[a],
             ma = s_state.m[a], vxa = s_state.vx[a], vya = s_state.vy[a];
 
+      f32 fpxa = i2f(pxa), fpya = i2f(pya), fra = i2f(ra);
+      f32 fma = i2f(ma), fvxa = i2f(vxa), fvya = i2f(vya);
+
       for (int b = a + 1; b < NUMBALLS; b++)
       {
          float pxb = s_state.px[b], pyb = s_state.py[b], rb = s_state.r[b];
-         float d = (pxa - pxb) * (pxa - pxb) + (pya - pyb) * (pya - pyb);
-         float dee2 = (ra + rb) * (ra + rb);
+         f32 fpxb = i2f(pxb), fpyb = i2f(pyb), frb = i2f(rb);
+         f32 fdx = fpxa - fpxb;
+         fdx = f2i(fdx * (long long)fdx);
+         f32 fdy = fpya - fpyb;
+         fdy = f2i(fdy * (long long)fdy);
+         f32 fd = fdx + fdy;
+         f32 fdee2 = f2i(fra + frb) * (long long)(fra + frb);
 
-         if (d < dee2)
+         if (fd < fdee2)
          {
             float mb = s_state.m[b];
+            f32 fmb = i2f(mb);
 
             float vxb = s_state.vx[b];
+            f32 fvxb = i2f(vxb);
             float vyb = s_state.vy[b];
+            f32 fvyb = i2f(vyb);
 
             collision_count++;
-            d = sqrtf(d);
-            float dd = ra + rb - d;
-            float cdx = (pxb - pxa) / d;
-            float cdy = (pyb - pya) / d;
+            fd = sqrtx(fd);
+            f32 frd = i2f((long long)i2f(1)) / fd;
+            f32 fdd = fra + frb - fd;
+            f32 fcdx = f2i((fpxb - fpxa) * (long long)frd);
+            f32 fcdy = f2i((fpyb - fpya) * (long long)frd);
 
             /* Move each ball apart from the other by half the
              * 'collision' distance.
              */
-            float dpx = dd / 2 * cdx;
-            float dpy = dd / 2 * cdy;
-            pxa -= dpx;
-            pya -= dpy;
-            s_state.px[b] += dpx;
-            s_state.py[b] += dpy;
+            f32 fdpx = f2i((fdd / 2) * (long long)fcdx);
+            f32 fdpy = f2i((fdd / 2) * (long long)fcdy);
+            fpxa -= fdpx;
+            fpya -= fdpy;
+            s_state.px[b] += f2f(fdpx);
+            s_state.py[b] += f2f(fdpy);
 
-            float vca =
-               vxa * cdx + vya * cdy; /* the component of each velocity */
-            float vcb =
-               vxb * cdx + vyb * cdy; /* along the axis of the collision */
+            f32 fvca =
+               f2i(fvxa * (long long)fcdx) + f2i(fvya * (long long)fcdy); /* the component of each velocity */
+            f32 fvcb =
+               f2i(fvxb * (long long)fcdx) + f2i(fvyb * (long long)fcdy); /* along the axis of the collision */
 
             /* elastic collison */
-            float dva = (vca * (ma - mb) + vcb * 2 * mb) / (ma + mb) - vca;
-            float dvb = (vcb * (mb - ma) + vca * 2 * ma) / (ma + mb) - vcb;
+            f32 fdva = (f2i((long long)fvca * (fma - fmb)) + f2i(fvcb * (long long)fmb * 2)) / f2i(fma + fmb) - fvca;
+            f32 fdvb = (f2i((long long)fvcb * (fmb - fma)) + f2i(fvca * (long long)fma * 2)) / f2i(fma + fmb) - fvcb;
 
-            dva *= e; /* some energy lost to inelasticity */
-            dvb *= e;
+            fdva = f2i(fdva * (long long)fe);
+            fdvb = f2i(fdvb * (long long)fe);
 
 #if 0
             dva += (frand (50) - 25) / ma;   /* q: why are elves so chaotic? */
             dvb += (frand (50) - 25) / mb;   /* a: brownian motion. */
 #endif
 
-            vxa += dva * cdx;
-            vya += dva * cdy;
-            vxb += dvb * cdx;
-            vyb += dvb * cdy;
+            fvxa += f2i(fdva * (long long)fcdx);
+            fvya += f2i(fdva * (long long)fcdy);
+            fvxb += f2i(fdvb * (long long)fcdx);
+            fvyb += f2i(fdvb * (long long)fcdy);
 
-            s_state.vx[b] = vxb;
-            s_state.vy[b] = vyb;
+            s_state.vx[b] = f2f(fvxb);
+            s_state.vy[b] = f2f(fvyb);
          }
 
-         s_state.px[a] = pxa;
-         s_state.py[a] = pya;
-         s_state.vx[a] = vxa;
-         s_state.vy[a] = vya;
+         s_state.px[a] = f2f(fpxa);
+         s_state.py[a] = f2f(fpya);
+         s_state.vx[a] = f2f(fvxa);
+         s_state.vy[a] = f2f(fvya);
       }
    }
 
