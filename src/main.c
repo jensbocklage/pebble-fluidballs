@@ -289,8 +289,10 @@ static void repaint_balls(Layer *layer, GContext *ctx)
 
    START_TIME_MEASURE();
 
+#if defined(PBL_PLATFORM_BASALT)
    graphics_context_set_antialiased(ctx, false);
    graphics_context_set_stroke_width(ctx, 0);
+#endif
 
    // black bg
    graphics_context_set_fill_color(ctx, GColorBlack);
