@@ -308,6 +308,9 @@ static void repaint_balls(Layer *layer, GContext *ctx)
    // black blobs
    if (outline_only) {
       graphics_context_set_stroke_color(ctx, GColorBlack);
+#if defined(PBL_PLATFORM_BASALT)
+      graphics_context_set_fill_color(ctx, GColorBrightGreen);
+#endif
    } else {
       graphics_context_set_fill_color(ctx, GColorBlack);
    }
@@ -315,6 +318,10 @@ static void repaint_balls(Layer *layer, GContext *ctx)
    for (int a = 0; a < NUMBALLS; a++)
    {
       if (outline_only) {
+#if defined(PBL_PLATFORM_BASALT)
+         graphics_fill_circle(
+            ctx, (GPoint){.x = s_state.px[a], .y = s_state.py[a]}, s_state.r[a]);
+#endif
          graphics_draw_circle(
             ctx, (GPoint){.x = s_state.px[a], .y = s_state.py[a]}, s_state.r[a]);
       } else {
