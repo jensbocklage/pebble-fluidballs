@@ -292,7 +292,7 @@ static void repaint_balls(Layer *layer, GContext *ctx)
 
 #if defined(PBL_PLATFORM_BASALT)
    fill = GColorBrightGreen;
-   graphics_context_set_antialiased(ctx, false);
+   graphics_context_set_antialiased(ctx, true);
    graphics_context_set_stroke_width(ctx, outline_only ? 1 : 0);
 #endif
 
@@ -358,8 +358,11 @@ static void update_gravity(void)
          APP_LOG(APP_LOG_LEVEL_DEBUG, "Could not get accel data: %d", e);
          return;
       }
-      s_state.accx = i2f(adata.x) >> 15;  // ~30*1024
-      s_state.accy = i2f(-adata.y) >> 15;
+
+      // http://developer.getpebble.com/guides/pebble-apps/sensors/accelerometer
+      // values in milli G
+      s_state.accx =  adata.x * GRAV / 1000;
+      s_state.accy = -adata.y * GRAV / 1000;
 
       u = 0;
    }
