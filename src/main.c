@@ -53,7 +53,7 @@ static unsigned int get_time(void)
 
 #define M_PI 3.14159265358979323846f
 
-#define NUMBALLS 100
+#define NUMBALLS 30
 #define GRAV (9.81f / 30.f)  // 1/30 of 1g
 
 static float sqrtf(float f)
