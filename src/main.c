@@ -105,6 +105,11 @@ extern inline unsigned int GameRand(void)
 
 extern inline float frand(float m) { return m * GameRand() / (float)-1u; }
 
+enum Gravity {
+   GRAV_SENSOR,
+   GRAV_SHOW
+};
+
 static struct
 {
    GRect bounds;
@@ -118,6 +123,7 @@ static struct
    float m[NUMBALLS];                /* ball mass, precalculated */
    float e;                          /* coeficient of elasticity */
    float max_radius;                 /* largest radius of any ball */
+   enum Gravity grav;
 } s_state;
 
 static void fluidballs_init(void)
@@ -126,6 +132,7 @@ static void fluidballs_init(void)
    s_state.accx = 0;
    s_state.accy = GRAV;
    s_state.e = 0.97;
+   s_state.grav = GRAV_SHOW;
 
    for (int i = 0; i < NUMBALLS; i++)
    {
@@ -313,46 +320,48 @@ static void window_load(Window *window)
 
 static void update_gravity(void)
 {
-#if 0
-// untested
-   AccelData adata;
-   int e;
-   if ((e = accel_service_peek(&adata)) < 0) {
-      APP_LOG(APP_LOG_LEVEL_DEBUG, "Could not get accel data: %d", e);
-      return;
-   }
-   s_state.accx = adata.x / 30;
-   s_state.accy = adata.y / 30;
-#elif 1
    static int u = 0;
 
-   u++;
+   if (s_state.grav == GRAV_SENSOR) {
+// untested
+      AccelData adata;
+      int e;
+      if ((e = accel_service_peek(&adata)) < 0) {
+         APP_LOG(APP_LOG_LEVEL_DEBUG, "Could not get accel data: %d", e);
+         return;
+      }
+      s_state.accx = adata.x / 10000.f;
+      s_state.accy = -adata.y / 10000.f;
 
-   const int frames = 40;
-   static int sign = 1;
-
-   switch (u / frames)
-   {
-   case 0:
-      s_state.accx = 0;
-      s_state.accy = GRAV;
-      break;
-   case 3:
-      s_state.accx = sign * GRAV;
-      s_state.accy = 0;
-      break;
-   case 4:
-      s_state.accx = 0;
-      break;
-   }
-
-   // 6, let no grav last 2x as long
-   if (u >= frames * 20)
-   {
       u = 0;
-      sign = -sign;
+   } else {
+      u++;
+
+      const int frames = 40;
+      static int sign = 1;
+
+      switch (u / frames)
+      {
+      case 0:
+         s_state.accx = 0;
+         s_state.accy = GRAV;
+         break;
+      case 3:
+         s_state.accx = sign * GRAV;
+         s_state.accy = 0;
+         break;
+      case 4:
+         s_state.accx = 0;
+         break;
+      }
+
+      // 6, let no grav last 2x as long
+      if (u >= frames * 20)
+      {
+         u = 0;
+         sign = -sign;
+      }
    }
-#endif
 }
 
 static void window_unload(Window *window)
@@ -376,8 +385,17 @@ static void anim_teardown(Animation *anim) {}
 static AnimationImplementation anim_impl = {
    .setup = anim_setup, .update = anim_update, .teardown = anim_teardown};
 
+static void down_single_click_handler(ClickRecognizerRef recognizer, void *context) {
+   s_state.grav ^= 1;
+}
+
+static void config_provider(Window *window) {
+   window_single_click_subscribe(BUTTON_ID_DOWN, down_single_click_handler);
+}
+
 static void init(void)
 {
+   accel_data_service_subscribe(0, NULL);
    s_state.window = window_create();
    window_set_fullscreen(s_state.window, true);
    s_state.bounds = (GRect){.size = (GSize){.w = 144, .h = 168}};
@@ -390,9 +408,13 @@ static void init(void)
                                  .load = window_load, .unload = window_unload,
                               });
    window_stack_push(s_state.window, false);
+   window_set_click_config_provider(s_state.window, (ClickConfigProvider) config_provider);
 }
 
-static void deinit(void) { window_destroy(s_state.window); }
+static void deinit(void) {
+   accel_data_service_unsubscribe();
+   window_destroy(s_state.window);
+}
 
 int main(void)
 {
