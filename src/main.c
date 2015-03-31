@@ -348,17 +348,17 @@ static void update_gravity(void)
          s_state.accx = 0;
          s_state.accy = GRAV;
          break;
-      case 3:
+      case 3+5:
          s_state.accx = sign * GRAV;
          s_state.accy = 0;
          break;
-      case 4:
+      case 4+5:
          s_state.accx = 0;
          break;
       }
 
       // 6, let no grav last 2x as long
-      if (u >= frames * 20)
+      if (u >= frames * 25)
       {
          u = 0;
          sign = -sign;
