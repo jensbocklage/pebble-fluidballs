@@ -289,9 +289,12 @@ static void repaint_balls(Layer *layer, GContext *ctx)
 
    START_TIME_MEASURE();
 
+   // When I'm all grown up; I'll make this nice!
+   const int outline_only = 1;
+
 #if defined(PBL_PLATFORM_BASALT)
    graphics_context_set_antialiased(ctx, false);
-   graphics_context_set_stroke_width(ctx, 0);
+   graphics_context_set_stroke_width(ctx, outline_only ? 1 : 0);
 #endif
 
    // black bg
@@ -303,11 +306,21 @@ static void repaint_balls(Layer *layer, GContext *ctx)
    graphics_fill_rect(ctx, s_state.bounds, 3, GCornersAll);
 
    // black blobs
-   graphics_context_set_fill_color(ctx, GColorBlack);
+   if (outline_only) {
+      graphics_context_set_stroke_color(ctx, GColorBlack);
+   } else {
+      graphics_context_set_fill_color(ctx, GColorBlack);
+   }
+
    for (int a = 0; a < NUMBALLS; a++)
    {
-      graphics_fill_circle(
-         ctx, (GPoint){.x = s_state.px[a], .y = s_state.py[a]}, s_state.r[a]);
+      if (outline_only) {
+         graphics_draw_circle(
+            ctx, (GPoint){.x = s_state.px[a], .y = s_state.py[a]}, s_state.r[a]);
+      } else {
+         graphics_fill_circle(
+            ctx, (GPoint){.x = s_state.px[a], .y = s_state.py[a]}, s_state.r[a]);
+      }
    }
 
    END_TIME_MEASURE();
