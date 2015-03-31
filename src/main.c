@@ -28,7 +28,7 @@
 
 #include <pebble.h>
 
-#if 0
+#if 1
 #undef APP_LOG
 #define APP_LOG(...)
 #define START_TIME_MEASURE()
@@ -51,14 +51,14 @@ static unsigned int get_time(void)
    } while (0)
 #endif
 
-#define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846f
 
-#define NUMBALLS 50
-#define GRAV (9.81 / 30)  // 1/30 of 1g
+#define NUMBALLS 100
+#define GRAV (9.81f / 30.f)  // 1/30 of 1g
 
 static float sqrtf(float f)
 {
-   float v = f * 0.5;
+   float v = f * 0.5f;
 #define IT() v = (v + f / v) * 0.5f
    IT();
    IT();
@@ -72,6 +72,26 @@ static float sqrtf(float f)
    IT();  // 10 looks even better
 #undef IT
    return v;
+}
+
+static float rsqrtf(float number)
+{
+   float x2;
+   const float threehalfs = 1.5F;
+
+   union
+   {
+      uint32_t i;
+      float y;
+   } u;
+
+   x2 = number * 0.5F;
+   u.y = number;
+   u.i = 0x5f3759df - (u.i >> 1);                // smart one!
+   u.y = u.y * (threehalfs - (x2 * u.y * u.y));  // 1st iteration
+   u.y = u.y * (threehalfs - (x2 * u.y * u.y));  // 2nd iteration
+
+   return u.y;
 }
 
 extern inline unsigned int GameRand(void)
@@ -110,13 +130,13 @@ static void fluidballs_init(void)
    for (int i = 0; i < NUMBALLS; i++)
    {
       float r = s_state.r[i] =
-         (frand(s_state.max_radius * 0.65) + s_state.max_radius * 0.35) /
-         sqrtf((float)NUMBALLS / 50);
-      s_state.px[i] = frand(s_state.bounds.size.w - 2 * r) + r;
-      s_state.py[i] = frand(s_state.bounds.size.h - 2 * r) + r;
-      s_state.vx[i] = 0;  // frand(5) - 2.5;
-      s_state.vy[i] = 0;  // frand(5) - 2.5;
-      s_state.m[i] = r * r * r * M_PI * 4 / 3;
+         (frand(s_state.max_radius * 0.65f) + s_state.max_radius * 0.35f) /
+         sqrtf((float)NUMBALLS / 50.f);
+      s_state.px[i] = frand(s_state.bounds.size.w - 2.f * r) + r;
+      s_state.py[i] = frand(s_state.bounds.size.h - 2.f * r) + r;
+      s_state.vx[i] = 0.f;  // frand(5) - 2.5;
+      s_state.vy[i] = 0.f;  // frand(5) - 2.5;
+      s_state.m[i] = r * r * r * M_PI * 4.f / 3.f;
 
       APP_LOG(APP_LOG_LEVEL_DEBUG,
               "created ball %d: p=(%d, %d), v=(%d, %d), r=%d, m=%d", i,
@@ -135,6 +155,13 @@ static void update_balls(void)
 
    uint16_t collision_count = 0;
    START_TIME_MEASURE();
+
+#define Q 20
+#define F (1 << Q)
+#define i2f(i) ((i)*F)
+#define f2i(f) ((f) / F)
+#define f2f(f) ((f) / (float)F)
+   typedef int32_t f32;
 
    /* For each ball, compute the influence of every other ball. */
    for (int a = 0; a < NUMBALLS - 1; a++)
@@ -157,19 +184,19 @@ static void update_balls(void)
 
             collision_count++;
             d = sqrtf(d);
-            float rd = 1.f / d;
             float dd = ra + rb - d;
-
-            float cdx = (pxb - pxa) * rd;
-            float cdy = (pyb - pya) * rd;
+            float cdx = (pxb - pxa) / d;
+            float cdy = (pyb - pya) / d;
 
             /* Move each ball apart from the other by half the
              * 'collision' distance.
              */
-            pxa -= 0.5 * dd * cdx;
-            pya -= 0.5 * dd * cdy;
-            s_state.px[b] += 0.5 * dd * cdx;
-            s_state.py[b] += 0.5 * dd * cdy;
+            float dpx = dd / 2 * cdx;
+            float dpy = dd / 2 * cdy;
+            pxa -= dpx;
+            pya -= dpy;
+            s_state.px[b] += dpx;
+            s_state.py[b] += dpy;
 
             float vca =
                vxa * cdx + vya * cdy; /* the component of each velocity */
