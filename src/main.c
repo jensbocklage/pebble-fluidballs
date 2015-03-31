@@ -339,6 +339,7 @@ static void update_gravity(void)
 static void window_unload(Window *window)
 {
    layer_set_update_proc(window_get_root_layer(window), NULL);
+   animation_unschedule_all();
    APP_LOG(APP_LOG_LEVEL_DEBUG, "window %p unloaded", window);
 }
 
@@ -372,11 +373,7 @@ static void init(void)
    window_stack_push(s_state.window, false);
 }
 
-static void deinit(void)
-{
-   animation_unschedule_all();
-   window_destroy(s_state.window);
-}
+static void deinit(void) { window_destroy(s_state.window); }
 
 int main(void)
 {
