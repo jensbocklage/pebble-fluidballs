@@ -51,36 +51,18 @@ static unsigned int get_time(void)
    } while (0)
 #endif
 
-#define M_PI 3.14159265358979323846f
+#define M_PI (i2f(31415) / 10000)
 
 #define NUMBALLS 30
-#define GRAV (9.81f / 30.f)  // 1/30 of 1g
+#define GRAV (i2f(981) / 3000)  // 1/30 of 1g
 
-#define Q 10 // works quite well with 10 bits
+#define Q 10  // works quite well with 10 bits
 #define F (1 << Q)
 #define M (F - 1)
 #define i2f(i) ((f32)((i)*F))
 #define f2i(f) ((f32)((f) / F))
 #define f2f(f) ((f) / (float)F)
 typedef int32_t f32;
-
-static float sqrtf(float f)
-{
-   float v = f * 0.5f;
-#define IT() v = (v + f / v) * 0.5f
-   IT();
-   IT();
-   IT();
-   IT();
-   IT();  // 5 is not enough for a nice animation
-   IT();
-   IT();
-   IT();  // 8 looks good
-   IT();
-   IT();  // 10 looks even better
-#undef IT
-   return v;
-}
 
 static f32 sqrtx(f32 f)
 {
@@ -100,26 +82,6 @@ static f32 sqrtx(f32 f)
    return v;
 }
 
-static float rsqrtf(float number)
-{
-   float x2;
-   const float threehalfs = 1.5F;
-
-   union
-   {
-      uint32_t i;
-      float y;
-   } u;
-
-   x2 = number * 0.5F;
-   u.y = number;
-   u.i = 0x5f3759df - (u.i >> 1);                // smart one!
-   u.y = u.y * (threehalfs - (x2 * u.y * u.y));  // 1st iteration
-   u.y = u.y * (threehalfs - (x2 * u.y * u.y));  // 2nd iteration
-
-   return u.y;
-}
-
 extern inline unsigned int GameRand(void)
 {
    static unsigned int low = 16180, high = 31415;
@@ -129,11 +91,10 @@ extern inline unsigned int GameRand(void)
    return high;
 }
 
-extern inline float frand(float m) { return m * GameRand() / (float)-1u; }
+extern inline f32 xrand(f32 m) { return f2i(m * (GameRand() & M)); }
 
-extern inline float xrand(f32 m) { return m * (GameRand() & M); }
-
-enum Gravity {
+enum Gravity
+{
    GRAV_SENSOR,
    GRAV_SHOW
 };
@@ -156,26 +117,29 @@ static struct
 static void fluidballs_init(void)
 {
    s_state.accx = 0;
-   s_state.accy = i2f(GRAV);
-   s_state.e = i2f(0.97);
+   s_state.accy = GRAV;
+   s_state.e = i2f(97) / 100;
    s_state.grav = GRAV_SHOW;
 
-   float max_radius = 10;
+   f32 max_radius = i2f(10);
 
    for (int i = 0; i < NUMBALLS; i++)
    {
-      float r = (frand(max_radius * 0.65f) + max_radius * 0.35f) / sqrtf((float)NUMBALLS / 50.f);
-      s_state.r[i] = i2f(r);
-      s_state.px[i] = i2f(frand(s_state.bounds.size.w - 2.f * r) + r);
-      s_state.py[i] = i2f(frand(s_state.bounds.size.h - 2.f * r) + r);
+      f32 r = i2f(xrand(max_radius * 65 / 100) + max_radius * 35 / 100) /
+              sqrtx(i2f(NUMBALLS) / 50);
+      s_state.r[i] = r;
+      s_state.px[i] = (xrand(i2f(s_state.bounds.size.w) - 2 * r) + r);
+      s_state.py[i] = (xrand(i2f(s_state.bounds.size.h) - 2 * r) + r);
       s_state.vx[i] = 0;  // frand(5) - 2.5;
       s_state.vy[i] = 0;  // frand(5) - 2.5;
-      s_state.m[i] = i2f(r * r * r * M_PI * 4.f / 3.f);
+      unsigned ir = f2i(r);
+      s_state.m[i] = ir * ir * ir * M_PI * 4u / 3u;
 
       APP_LOG(APP_LOG_LEVEL_DEBUG,
-              "created ball %d: p=(%d, %d), v=(%d, %d), r=%d, m=%d", i,
-              (int)f2i(s_state.px[i]), (int)f2i(s_state.py[i]), (int)f2i(s_state.vx[i]),
-              (int)f2i(s_state.vy[i]), (int)f2i(s_state.r[i]), (int)f2i(s_state.m[i]));
+              "created ball %d: p=(%d, %d), v=(%d, %d), r=%d (%d), m=%d", i,
+              (int)f2i(s_state.px[i]), (int)f2i(s_state.py[i]),
+              (int)f2i(s_state.vx[i]), (int)f2i(s_state.vy[i]),
+              (int)f2i(s_state.r[i]), (int)f2i(r), (int)f2i(s_state.m[i]));
    }
 }
 
@@ -194,7 +158,7 @@ static void update_balls(void)
    for (int a = 0; a < NUMBALLS - 1; a++)
    {
       f32 fpxa = s_state.px[a], fpya = s_state.py[a], fra = s_state.r[a],
-            fma = s_state.m[a], fvxa = s_state.vx[a], fvya = s_state.vy[a];
+          fma = s_state.m[a], fvxa = s_state.vx[a], fvya = s_state.vy[a];
 
       for (int b = a + 1; b < NUMBALLS; b++)
       {
@@ -204,7 +168,7 @@ static void update_balls(void)
          f32 fdy = fpya - fpyb;
          fdy = f2i(fdy * (long long)fdy);
          f32 fd = fdx + fdy;
-         f32 fdee2 = f2i(fra + frb) * (long long)(fra + frb);
+         f32 fdee2 = f2i((fra + frb) * (long long)(fra + frb));
 
          if (fd < fdee2)
          {
@@ -215,42 +179,48 @@ static void update_balls(void)
 
             collision_count++;
             fd = sqrtx(fd);
-            f32 frd = i2f((long long)i2f(1)) / fd;
+            f32 frd = i2f(i2f(1)) / fd;
             f32 fdd = fra + frb - fd;
-            f32 fcdx = f2i((fpxb - fpxa) * (long long)frd);
-            f32 fcdy = f2i((fpyb - fpya) * (long long)frd);
+            f32 fcdx = f2i((fpxb - fpxa) * frd);
+            f32 fcdy = f2i((fpyb - fpya) * frd);
 
             /* Move each ball apart from the other by half the
              * 'collision' distance.
              */
-            f32 fdpx = f2i((fdd / 2) * (long long)fcdx);
-            f32 fdpy = f2i((fdd / 2) * (long long)fcdy);
+            f32 fdpx = f2i((fdd / 2) * fcdx);
+            f32 fdpy = f2i((fdd / 2) * fcdy);
             fpxa -= fdpx;
             fpya -= fdpy;
             s_state.px[b] += fdpx;
             s_state.py[b] += fdpy;
 
-            f32 fvca =
-               f2i(fvxa * (long long)fcdx) + f2i(fvya * (long long)fcdy); /* the component of each velocity */
-            f32 fvcb =
-               f2i(fvxb * (long long)fcdx) + f2i(fvyb * (long long)fcdy); /* along the axis of the collision */
+            f32 fvca = f2i(fvxa * fcdx) +
+                       f2i(fvya * fcdy); /* the component of each velocity */
+            f32 fvcb = f2i(fvxb * fcdx) +
+                       f2i(fvyb * fcdy); /* along the axis of the collision */
 
             /* elastic collison */
-            f32 fdva = (f2i((long long)fvca * (fma - fmb)) + f2i(fvcb * (long long)fmb * 2)) / f2i(fma + fmb) - fvca;
-            f32 fdvb = (f2i((long long)fvcb * (fmb - fma)) + f2i(fvca * (long long)fma * 2)) / f2i(fma + fmb) - fvcb;
+            f32 fdva = (f2i((long long)fvca * (fma - fmb)) +
+                        f2i(fvcb * (long long)fmb * 2)) /
+                          f2i(fma + fmb) -
+                       fvca;
+            f32 fdvb = (f2i((long long)fvcb * (fmb - fma)) +
+                        f2i(fvca * (long long)fma * 2)) /
+                          f2i(fma + fmb) -
+                       fvcb;
 
-            fdva = f2i(fdva * (long long)fe);
-            fdvb = f2i(fdvb * (long long)fe);
+            fdva = f2i(fdva * fe);
+            fdvb = f2i(fdvb * fe);
 
 #if 0
             dva += (frand (50) - 25) / ma;   /* q: why are elves so chaotic? */
             dvb += (frand (50) - 25) / mb;   /* a: brownian motion. */
 #endif
 
-            fvxa += f2i(fdva * (long long)fcdx);
-            fvya += f2i(fdva * (long long)fcdy);
-            fvxb += f2i(fdvb * (long long)fcdx);
-            fvyb += f2i(fdvb * (long long)fcdy);
+            fvxa += f2i(fdva * fcdx);
+            fvya += f2i(fdva * fcdy);
+            fvxb += f2i(fdvb * fcdx);
+            fvyb += f2i(fdvb * fcdy);
 
             s_state.vx[b] = fvxb;
             s_state.vy[b] = fvyb;
@@ -265,6 +235,8 @@ static void update_balls(void)
 
    /* Force all balls to be on screen.
     */
+   f32 fw = i2f(s_state.bounds.size.w);
+   f32 fh = i2f(s_state.bounds.size.h);
    for (int a = 0; a < NUMBALLS; a++)
    {
       f32 r = s_state.r[a];
@@ -273,9 +245,9 @@ static void update_balls(void)
          s_state.px[a] = r;
          s_state.vx[a] = f2i(-s_state.vx[a] * fe);
       }
-      if (s_state.px[a] + r > i2f(s_state.bounds.size.w))
+      if (s_state.px[a] + r > fw)
       {
-         s_state.px[a] = i2f(s_state.bounds.size.w) - r;
+         s_state.px[a] = fw - r;
          s_state.vx[a] = f2i(-s_state.vx[a] * fe);
       }
       if (s_state.py[a] < r)
@@ -283,9 +255,9 @@ static void update_balls(void)
          s_state.py[a] = r;
          s_state.vy[a] = f2i(-s_state.vy[a] * fe);
       }
-      if (s_state.py[a] + r > i2f(s_state.bounds.size.h))
+      if (s_state.py[a] + r > fh)
       {
-         s_state.py[a] = i2f(s_state.bounds.size.h) - r;
+         s_state.py[a] = fh - r;
          s_state.vy[a] = f2i(-s_state.vy[a] * fe);
       }
    }
@@ -331,27 +303,36 @@ static void repaint_balls(Layer *layer, GContext *ctx)
    graphics_fill_rect(ctx, s_state.bounds, 3, GCornersAll);
 
    // black blobs
-   if (outline_only) {
+   if (outline_only)
+   {
       graphics_context_set_stroke_color(ctx, GColorBlack);
 #if defined(PBL_PLATFORM_BASALT)
       graphics_context_set_fill_color(ctx, GColorBrightGreen);
 #endif
-   } else {
+   }
+   else
+   {
       graphics_context_set_fill_color(ctx, GColorBlack);
    }
 
    for (int a = 0; a < NUMBALLS; a++)
    {
-      if (outline_only) {
+      if (outline_only)
+      {
 #if defined(PBL_PLATFORM_BASALT)
          graphics_fill_circle(
-            ctx, (GPoint){.x = f2i(s_state.px[a]), .y = f2i(s_state.py[a])}, f2i(s_state.r[a]));
+            ctx, (GPoint){.x = f2i(s_state.px[a]), .y = f2i(s_state.py[a])},
+            f2i(s_state.r[a]));
 #endif
          graphics_draw_circle(
-            ctx, (GPoint){.x = f2i(s_state.px[a]), .y = f2i(s_state.py[a])}, f2i(s_state.r[a]));
-      } else {
+            ctx, (GPoint){.x = f2i(s_state.px[a]), .y = f2i(s_state.py[a])},
+            f2i(s_state.r[a]));
+      }
+      else
+      {
          graphics_fill_circle(
-            ctx, (GPoint){.x = f2i(s_state.px[a]), .y = f2i(s_state.py[a])}, f2i(s_state.r[a]));
+            ctx, (GPoint){.x = f2i(s_state.px[a]), .y = f2i(s_state.py[a])},
+            f2i(s_state.r[a]));
       }
    }
 
@@ -369,19 +350,23 @@ static void update_gravity(void)
 {
    static int u = 0;
 
-   if (s_state.grav == GRAV_SENSOR) {
-// untested
+   if (s_state.grav == GRAV_SENSOR)
+   {
+      // untested
       AccelData adata;
       int e;
-      if ((e = accel_service_peek(&adata)) < 0) {
+      if ((e = accel_service_peek(&adata)) < 0)
+      {
          APP_LOG(APP_LOG_LEVEL_DEBUG, "Could not get accel data: %d", e);
          return;
       }
-      s_state.accx = i2f(adata.x) >> 15; // / (30.f * 1024.f));
-      s_state.accy = i2f(-adata.y) >> 15; // / (30.f * 1024.f));
+      s_state.accx = i2f(adata.x) >> 15;  // ~30*1024
+      s_state.accy = i2f(-adata.y) >> 15;
 
       u = 0;
-   } else {
+   }
+   else
+   {
       u++;
 
       const int frames = 40;
@@ -391,13 +376,13 @@ static void update_gravity(void)
       {
       case 0:
          s_state.accx = 0;
-         s_state.accy = i2f(GRAV);
+         s_state.accy = GRAV;
          break;
-      case 3+5:
-         s_state.accx = sign * i2f(GRAV);
+      case 3 + 5:
+         s_state.accx = sign * GRAV;
          s_state.accy = 0;
          break;
-      case 4+5:
+      case 4 + 5:
          s_state.accx = 0;
          break;
       }
@@ -432,11 +417,14 @@ static void anim_teardown(Animation *anim) {}
 static AnimationImplementation anim_impl = {
    .setup = anim_setup, .update = anim_update, .teardown = anim_teardown};
 
-static void down_single_click_handler(ClickRecognizerRef recognizer, void *context) {
+static void down_single_click_handler(ClickRecognizerRef recognizer,
+                                      void *context)
+{
    s_state.grav ^= 1;
 }
 
-static void config_provider(Window *window) {
+static void config_provider(Window *window)
+{
    window_single_click_subscribe(BUTTON_ID_DOWN, down_single_click_handler);
 }
 
@@ -455,10 +443,12 @@ static void init(void)
                                  .load = window_load, .unload = window_unload,
                               });
    window_stack_push(s_state.window, false);
-   window_set_click_config_provider(s_state.window, (ClickConfigProvider) config_provider);
+   window_set_click_config_provider(s_state.window,
+                                    (ClickConfigProvider)config_provider);
 }
 
-static void deinit(void) {
+static void deinit(void)
+{
    accel_data_service_unsubscribe();
    window_destroy(s_state.window);
 }
