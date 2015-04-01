@@ -74,8 +74,8 @@ static f32 sqrtx(f32 f)
    IT();
    IT();  // 5 is not enough for a nice animation
    IT();
-//   IT();
-//   IT();  // 8 looks good
+   IT();
+   IT();  // 8 looks good
 //   IT();
 //   IT();  // 10 looks even better
 #undef IT
@@ -267,16 +267,14 @@ static void update_balls(void)
          s_state.py[a] = fh - r;
          s_state.vy[a] = f2i(-s_state.vy[a] * fe);
       }
-   }
 
-   /* Apply gravity to all balls.
-    */
-   for (int a = 0; a < NUMBALLS; a++)
-   {
-      s_state.vx[a] += s_state.accx;
-      s_state.vy[a] += s_state.accy;
+      /* Apply gravity to all balls.
+       */
       s_state.px[a] += s_state.vx[a];
       s_state.py[a] += s_state.vy[a];
+
+      s_state.vx[a] += s_state.accx;
+      s_state.vy[a] += s_state.accy;
    }
 
    END_TIME_MEASURE();
