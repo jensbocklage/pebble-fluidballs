@@ -197,8 +197,8 @@ static void update_balls(void)
              */
             f32 fdpx = f2i((fdd / 2) * fcdx);
             f32 fdpy = f2i((fdd / 2) * fcdy);
-            fpxa -= fdpx;
-            fpya -= fdpy;
+            fpxa -= fdpx + 1; // epsilon to avoid sticking
+            fpya -= fdpy + 1;
             s_state.px[b] += fdpx;
             s_state.py[b] += fdpy;
 
@@ -248,22 +248,22 @@ static void update_balls(void)
       f32 r = s_state.r[a];
       if (s_state.px[a] < r)
       {
-         s_state.px[a] = r;
+         s_state.px[a] = r + 1; // epsilon, to avoid sticking
          s_state.vx[a] = f2i(-s_state.vx[a] * fe);
       }
       if (s_state.px[a] + r > fw)
       {
-         s_state.px[a] = fw - r;
+         s_state.px[a] = fw - r - 1;
          s_state.vx[a] = f2i(-s_state.vx[a] * fe);
       }
       if (s_state.py[a] < r)
       {
-         s_state.py[a] = r;
+         s_state.py[a] = r + 1;
          s_state.vy[a] = f2i(-s_state.vy[a] * fe);
       }
       if (s_state.py[a] + r > fh)
       {
-         s_state.py[a] = fh - r;
+         s_state.py[a] = fh - r - 1;
          s_state.vy[a] = f2i(-s_state.vy[a] * fe);
       }
 
