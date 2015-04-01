@@ -56,12 +56,13 @@ static unsigned int get_time(void)
 #define NUMBALLS 60
 #define GRAV (i2f(981) / 3000)  // 1/30 of 1g
 
-#define Q 10  // works quite well with 10 bits
+#define Q 11  // works quite well with 10 bits
 #define F (1 << Q)
 #define M (F - 1)
 #define i2f(i) ((f32)((i)*F))
 #define f2i(f) ((f32)((f) / F))
 #define f2f(f) ((f) / (float)F)
+#define ll(f) ((int64_t)(f))
 typedef int32_t f32;
 
 static f32 sqrtx(f32 f)
@@ -171,11 +172,11 @@ static void update_balls(void)
       {
          f32 fpxb = s_state.px[b], fpyb = s_state.py[b], frb = s_state.r[b];
          f32 fdx = fpxa - fpxb;
-         fdx = f2i(fdx * (long long)fdx);
+         fdx = f2i(fdx * ll(fdx));
          f32 fdy = fpya - fpyb;
-         fdy = f2i(fdy * (long long)fdy);
+         fdy = f2i(fdy * ll(fdy));
          f32 fd = fdx + fdy;
-         f32 fdee2 = f2i((fra + frb) * (long long)(fra + frb));
+         f32 fdee2 = f2i((fra + frb) * ll(fra + frb));
 
          if (fd < fdee2)
          {
@@ -207,12 +208,10 @@ static void update_balls(void)
                        f2i(fvyb * fcdy); /* along the axis of the collision */
 
             /* elastic collison */
-            f32 fdva = (f2i((long long)fvca * (fma - fmb)) +
-                        f2i(fvcb * (long long)fmb * 2)) /
+            f32 fdva = (f2i(fvca * ll(fma - fmb)) + f2i(fvcb * ll(fmb)) * 2) /
                           f2i(fma + fmb) -
                        fvca;
-            f32 fdvb = (f2i((long long)fvcb * (fmb - fma)) +
-                        f2i(fvca * (long long)fma * 2)) /
+            f32 fdvb = (f2i(fvcb * ll(fmb - fma)) + f2i(fvca * ll(fma)) * 2) /
                           f2i(fma + fmb) -
                        fvcb;
 
@@ -366,7 +365,7 @@ static void update_gravity(void)
 
       // http://developer.getpebble.com/guides/pebble-apps/sensors/accelerometer
       // values in milli G
-      s_state.accx =  adata.x * GRAV / 1000;
+      s_state.accx = adata.x * GRAV / 1000;
       s_state.accy = -adata.y * GRAV / 1000;
 
       u = 0;
